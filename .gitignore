@@ -1,0 +1,17 @@
+# Oracle
+*.log
+*.trc
+
+# Docker
+oracle-data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,56 @@
+%syntax-version=1.0.0
+%project=payment-app
+%uri=https://github.com/example/sqitch-oracle-poc
+
+# ===========================================================================
+# DAG миграций платёжного приложения
+# ===========================================================================
+# Уровень 0 — Корень:
+#   appschema                    (нет зависимостей)
+
+# Уровень 1 — Справочники:
+#   currencies                   [appschema]
+#   account_types                [appschema]
+#   transaction_types            [appschema]
+#   customers                    [appschema]
+
+# Уровень 2 — Основные таблицы:
+#   accounts                     [customers account_types]    ◆ DIAMOND
+#   exchange_rates               [currencies]
+
+# Уровень 3 — Транзакции:
+#   transactions                 [accounts currencies transaction_types]  ◆ WIDE (3 ветки)
+
+# Уровень 4 — Бизнес-логика:
+#   payments_pkg                 [transactions accounts customers]
+#   account_audit                [accounts]
+
+# Уровень 5 — Аналитика:
+#   reports_pkg                  [payments_pkg transactions]
+#   daily_processing             [payments_pkg exchange_rates]  ◆ CROSS-BRANCH
+
+# Уровень 6 — Данные:
+#   seed_reference_data          [currencies account_types transaction_types]
+#   seed_test_data               [seed_reference_data customers accounts payments_pkg]  ◆ DEEP CHAIN
+# ===========================================================================
+
+appschema 2025-02-01T10:00:00Z PoC Developer <poc@example.com> # Схема приложения: гранты и настройки
+
+currencies [appschema] 2025-02-01T10:01:00Z PoC Developer <poc@example.com> # Справочник валют (ISO 4217)
+account_types [appschema] 2025-02-01T10:02:00Z PoC Developer <poc@example.com> # Типы счетов (текущий, депозит, ссудный)
+transaction_types [appschema] 2025-02-01T10:03:00Z PoC Developer <poc@example.com> # Типы транзакций (пополнение, списание, перевод)
+customers [appschema] 2025-02-01T10:04:00Z PoC Developer <poc@example.com> # Клиенты (ФЛ, ЮЛ)
+
+accounts [customers account_types] 2025-02-01T10:05:00Z PoC Developer <poc@example.com> # Счета — DIAMOND зависимость от customers + account_types
+exchange_rates [currencies] 2025-02-01T10:06:00Z PoC Developer <poc@example.com> # Курсы валют
+
+transactions [accounts currencies transaction_types] 2025-02-01T10:07:00Z PoC Developer <poc@example.com> # Транзакции — WIDE зависимость (3 ветки)
+
+payments_pkg [transactions accounts customers] 2025-02-01T10:08:00Z PoC Developer <poc@example.com> # PL/SQL пакет обработки платежей
+account_audit [accounts] 2025-02-01T10:09:00Z PoC Developer <poc@example.com> # Аудит-триггер на изменение баланса
+
+reports_pkg [payments_pkg transactions] 2025-02-01T10:10:00Z PoC Developer <poc@example.com> # PL/SQL пакет отчётности
+daily_processing [payments_pkg exchange_rates] 2025-02-01T10:11:00Z PoC Developer <poc@example.com> # Ежедневная обработка — CROSS-BRANCH
+
+seed_reference_data [currencies account_types transaction_types] 2025-02-01T10:12:00Z PoC Developer <poc@example.com> # Заполнение справочников
+seed_test_data [seed_reference_data customers accounts payments_pkg] 2025-02-01T10:13:00Z PoC Developer <poc@example.com> # Тестовые данные — DEEP CHAIN (6 уровней)

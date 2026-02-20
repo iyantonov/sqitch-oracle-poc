@@ -1,0 +1,72 @@
+###############################################################################
+# Sqitch + Oracle Instant Client 19c
+#
+# Oracle Instant Client 19c — последняя версия, поддерживающая Oracle 11g.
+# Начиная с 21c минимальная версия сервера — 12.1.
+#
+# База: oraclelinux:8-slim (нативная поддержка Oracle yum-репозиториев)
+###############################################################################
+FROM oraclelinux:8-slim
+
+LABEL maintainer="sqitch-oracle-poc"
+LABEL description="Sqitch with Oracle Instant Client 19c for Oracle 11g migrations"
+
+# ─── Установка Oracle Instant Client 19c ────────────────────────────────
+# oracle-release-el8 конфигурирует yum-репозиторий Oracle для OL8
+# Подтверждено: oracle-instantclient19.25-* доступен в yum.oracle.com
+RUN microdnf install -y oracle-release-el8 && \
+    microdnf install -y \
+        oracle-instantclient19.25-basic \
+        oracle-instantclient19.25-sqlplus \
+        oracle-instantclient19.25-devel \
+    && microdnf clean all
+
+# ─── Переменные окружения Oracle ────────────────────────────────────────
+# Определяем ORACLE_HOME динамически (на случай если версия изменится)
+ENV ORACLE_HOME=/usr/lib/oracle/19.25/client64
+ENV LD_LIBRARY_PATH=${ORACLE_HOME}/lib
+ENV PATH=${ORACLE_HOME}/bin:${PATH}
+ENV TNS_ADMIN=${ORACLE_HOME}/lib/network/admin
+ENV NLS_LANG=AMERICAN_AMERICA.AL32UTF8
+
+# ─── Установка Perl, утилит сборки, Sqitch ──────────────────────────────
+RUN microdnf install -y \
+        perl \
+        perl-App-cpanminus \
+        perl-DBI \
+        perl-devel \
+        perl-local-lib \
+        gcc \
+        make \
+        libaio \
+        git \
+        tar \
+        gzip \
+        which \
+    && microdnf clean all
+
+# ─── Установка Sqitch и DBD::Oracle из CPAN ─────────────────────────────
+RUN cpanm --notest --quiet \
+        Template::Tiny \
+        DBD::Oracle \
+        App::Sqitch \
+    && rm -rf ~/.cpanm
+
+# ─── Проверка установки ─────────────────────────────────────────────────
+RUN sqitch --version && \
+    sqlplus -V && \
+    perl -MDBD::Oracle -e 'print "DBD::Oracle $DBD::Oracle::VERSION\n"'
+
+# ─── Рабочая директория ─────────────────────────────────────────────────
+RUN mkdir -p /repo && \
+    groupadd -r sqitch && \
+    useradd -r -g sqitch -d /repo sqitch && \
+    chown sqitch:sqitch /repo
+
+WORKDIR /repo
+
+# Не запускаем от root (безопасность)
+# Закомментировано для PoC — может потребоваться root для отладки
+# USER sqitch
+
+CMD ["sqitch", "--version"]

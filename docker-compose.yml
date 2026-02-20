@@ -1,0 +1,75 @@
+###############################################################################
+# Sqitch + Oracle 11g PoC — Docker Compose
+#
+# Образы:
+#   oracle-db : gvenzl/oracle-xe:11-slim   — Oracle XE 11.2.0.2
+#               (Gerald Venzl / Oracle DevRel, 10M+ pulls, рекомендован Sqitch)
+#   sqitch    : Собственная сборка на базе oraclelinux:8-slim
+#               + Oracle Instant Client 19c + Sqitch + DBD::Oracle
+#
+# Oracle XE 11.2.0.2 vs 11.2.0.4:
+#   PL/SQL-совместимость идентична. Разница только в patching (PSU/CPU).
+#   Для PoC миграций это не имеет значения — все конструкции PL/SQL
+#   работают одинаково на 11.2.0.2 и 11.2.0.4.
+###############################################################################
+version: '3.8'
+
+services:
+  # ─── Oracle Database 11g XE ───────────────────────────────────────────
+  oracle-db:
+    image: gvenzl/oracle-xe:11-slim
+    container_name: oracle11g-poc
+    environment:
+      ORACLE_PASSWORD: SysPassword123
+      APP_USER: payment_app
+      APP_USER_PASSWORD: PayApp2025
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/u01/app/oracle/oradata
+      - ./scripts/init-oracle-user.sql:/container-entrypoint-initdb.d/01-init-user.sql
+    shm_size: '1g'
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    networks:
+      - poc-network
+
+  # ─── Sqitch с поддержкой Oracle ───────────────────────────────────────
+  sqitch:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sqitch
+    container_name: sqitch-oracle-poc
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    environment:
+      SQITCH_TARGET: "db:oracle://payment_app:PayApp2025@oracle-db:1521/XE"
+      TWO_TASK: "//oracle-db:1521/XE"
+      ORACLE_HOME: /usr/lib/oracle/19.25/client64
+      LD_LIBRARY_PATH: /usr/lib/oracle/19.25/client64/lib
+      TNS_ADMIN: /usr/lib/oracle/19.25/client64/lib/network/admin
+    volumes:
+      - ./sqitch.conf:/repo/sqitch.conf
+      - ./sqitch.plan:/repo/sqitch.plan
+      - ./deploy:/repo/deploy
+      - ./revert:/repo/revert
+      - ./verify:/repo/verify
+    working_dir: /repo
+    networks:
+      - poc-network
+    # Контейнер остаётся активным для интерактивной работы
+    stdin_open: true
+    tty: true
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+volumes:
+  oracle-data:
+
+networks:
+  poc-network:
+    driver: bridge
