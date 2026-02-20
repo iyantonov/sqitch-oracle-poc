@@ -24,27 +24,68 @@
 
 ## Граф зависимостей (DAG)
 
-```
-              appschema                          ← Уровень 0 (корень)
-             /    |    \     \
-            /     |     \     \
-    currencies account_  txn_   customers        ← Уровень 1 (справочники)
-        |      types    types     |
-        |        \       |       /
-   exchange_      \      |      /
-    rates      accounts ←──────┘                 ← Уровень 2 (◆ DIAMOND)
-        |          |     |
-        |      transactions ←────────────────    ← Уровень 3 (◆ WIDE: 3 ветки)
-        |       /     |
-        |   payments_ account_
-        |    pkg      audit                      ← Уровень 4 (бизнес-логика)
-        |   /    \
-   daily_    reports_
- processing   pkg                                ← Уровень 5 (◆ CROSS-BRANCH)
-        ↑
-   seed_reference_data                           ← Уровень 6 (данные)
-        |
-   seed_test_data                                ← Уровень 6 (◆ DEEP CHAIN)
+```mermaid
+graph TD
+    classDef root fill:#e74c3c,stroke:#c0392b,color:white,font-weight:bold
+    classDef l1 fill:#3498db,stroke:#2980b9,color:white
+    classDef l2 fill:#2ecc71,stroke:#27ae60,color:white,font-weight:bold
+    classDef l3 fill:#f39c12,stroke:#d68910,color:white,font-weight:bold
+    classDef l4 fill:#9b59b6,stroke:#8e44ad,color:white
+    classDef l5 fill:#e67e22,stroke:#d35400,color:white,font-weight:bold
+    classDef l6 fill:#1abc9c,stroke:#16a085,color:white
+
+    AS[appschema]:::root
+
+    CUR[currencies]:::l1
+    AT[account_types]:::l1
+    TT[transaction_types]:::l1
+    CUST[customers]:::l1
+
+    ACCT["accounts<br/>◆ DIAMOND"]:::l2
+    ER[exchange_rates]:::l1
+
+    TXN["transactions<br/>◆ WIDE 3 branches"]:::l3
+
+    PAY[payments_pkg]:::l4
+    AUDIT[account_audit]:::l4
+
+    REP[reports_pkg]:::l5
+    DAILY["daily_processing<br/>◆ CROSS-BRANCH"]:::l5
+
+    SEED[seed_reference_data]:::l6
+    TEST["seed_test_data<br/>◆ DEEP CHAIN"]:::l6
+
+    AS --> CUR
+    AS --> AT
+    AS --> TT
+    AS --> CUST
+
+    CUST --> ACCT
+    AT --> ACCT
+    CUR --> ER
+
+    ACCT --> TXN
+    CUR --> TXN
+    TT --> TXN
+
+    TXN --> PAY
+    ACCT --> PAY
+    CUST --> PAY
+    ACCT --> AUDIT
+
+    PAY --> REP
+    TXN --> REP
+    PAY --> DAILY
+    ER --> DAILY
+
+    CUR --> SEED
+    AT --> SEED
+    TT --> SEED
+
+    SEED --> TEST
+    CUST --> TEST
+    ACCT --> TEST
+    PAY --> TEST
 ```
 
 ### Типы зависимостей продемонстрированные в проекте
